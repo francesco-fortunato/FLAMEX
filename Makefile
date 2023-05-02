@@ -43,7 +43,6 @@ LWIP_IPV4 ?= 1
 LWIP_IPV6 ?= 0
 
 include Makefile.lwip
-include Makefile.gnrc
 
 USEMODULE += sock_async_event
 USEMODULE += sock_ip
