@@ -1,4 +1,20 @@
-#include <stdio.h>
+/*
+ * Copyright (C) 2023 Francesco Fortunato
+ * This file is subject to the terms and conditions of the MIT License.
+ * See the file LICENSE in the top level directory for more details.
+ */
+
+/**
+ * @{
+ *
+ * @file
+ * @brief       FLAMEX
+ *
+ * @author      Francesco Fortunato <francesco.fortunato1999@gmail.com>
+ *
+ * @}
+ */
+#include "stdio.h"
 #include <time.h>
 #include "periph/adc.h"
 #include "periph/gpio.h"
@@ -8,6 +24,7 @@
 #include "led.h"
 #include "u8g2.h"
 #include "u8x8_riotos.h"
+
 
 #include "paho_mqtt.h"
 #include "MQTTClient.h"
@@ -21,39 +38,26 @@
 #define OLED_WIDTH    128
 #define OLED_HEIGHT   64
 
+
 // MQTT client settings
 #define BUF_SIZE                        1024
 
-#define MQTT_BROKER_ADDR "192.168.54.13"
+#define MQTT_BROKER_ADDR "192.168.252.13"
 #define MQTT_TOPIC "flamex"
 #define MQTT_VERSION_v311               4       /* MQTT v3.1.1 version is 4 */
 #define COMMAND_TIMEOUT_MS              4000
 
-
-#ifndef DEFAULT_MQTT_CLIENT_ID
 #define DEFAULT_MQTT_CLIENT_ID          ""
-#endif
 
-#ifndef DEFAULT_MQTT_USER
 #define DEFAULT_MQTT_USER               ""
-#endif
 
-#ifndef DEFAULT_MQTT_PWD
 #define DEFAULT_MQTT_PWD                ""
-#endif
 
-/**
- * @brief Default MQTT port
- */
-#define DEFAULT_MQTT_PORT               1883
+#define DEFAULT_MQTT_PORT               1883    // Default MQTT port
 
-/**
- * @brief Keepalive timeout in seconds
- */
-#define DEFAULT_KEEPALIVE_SEC           10
+#define DEFAULT_KEEPALIVE_SEC           10      // Keepalive timeout in seconds
 
 #define IS_RETAINED_MSG                 0
-
 
 
 static MQTTClient client;
@@ -115,13 +119,30 @@ static int mqtt_connect(void)
     return 0;
 }
 
+// value from 0 to 7, higher values more brighter
+void setSSD1306VcomDeselect(uint8_t v)
+{	
+  u8x8_cad_StartTransfer(&u8g2.u8x8);
+  u8x8_cad_SendCmd(&u8g2.u8x8, 0x0db);
+  u8x8_cad_SendArg(&u8g2.u8x8, v << 4);
+  u8x8_cad_EndTransfer(&u8g2.u8x8);
+}
+
+// p1: 1..15, higher values, more darker, however almost no difference with 3 or more
+// p2: 1..15, higher values, more brighter
+void setSSD1306PreChargePeriod(uint8_t p1, uint8_t p2)
+{	
+  u8x8_cad_StartTransfer(&u8g2.u8x8);
+  u8x8_cad_SendCmd(&u8g2.u8x8, 0x0d9);
+  u8x8_cad_SendArg(&u8g2.u8x8, (p2 << 4) | p1 );
+  u8x8_cad_EndTransfer(&u8g2.u8x8);
+}
+
 int main(void)
 {
-    puts("Hello World!");
-
     printf("You are running RIOT on a(n) %s board.\n", RIOT_BOARD);
     printf("This board features a(n) %s MCU.\n", RIOT_MCU);
-
+    
     if(adc_init(ADC_IN_USE) < 0){
         printf("Failed to initialize ADC\n");
         return 1;
@@ -137,19 +158,20 @@ int main(void)
         printf("Buzzer OK\n");
     }
 
-
     // Initialize the display
     u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0,
                                        u8x8_byte_hw_i2c_riotos,
                                        u8x8_gpio_and_delay_riotos);
     u8g2_SetUserPtr(&u8g2, &user_data);
     u8g2_SetI2CAddress(&u8g2, SSD1306_I2C_ADDR);
-    u8g2_ClearBuffer(&u8g2);
     u8g2_InitDisplay(&u8g2);
-    u8g2_SetPowerSave(&u8g2, 0);
-    u8g2_ClearBuffer(&u8g2);
+    u8g2_SetPowerSave(&u8g2, 0);  
+    u8g2_ClearDisplay(&u8g2);
+    // Set VCOM deselect and pre-charge period
+    setSSD1306VcomDeselect(7);
+    setSSD1306PreChargePeriod(1, 15);
 
-    
+    //u8g2_SetContrast(&u8g2, 0);
 
     //Timer
     xtimer_ticks32_t last = xtimer_now();
@@ -157,33 +179,84 @@ int main(void)
     int flame = 0;
     float voltage = 0;
 
-    #ifdef MODULE_LWIP
-    /* let LWIP initialize */
-    ztimer_sleep(ZTIMER_MSEC, 1 * MS_PER_SEC);
-#endif
+    bool fire = false;
+    bool sleep = false;
 
-    ztimer_sleep(ZTIMER_MSEC, 10 * MS_PER_SEC);
+    
 
+    //ztimer_sleep(ZTIMER_MSEC, 10 * MS_PER_SEC);
+    int progress=0;
+    while(progress<30){
+        
+        u8g2_FirstPage(&u8g2);
+        do {
+            u8g2_SetDrawColor(&u8g2, 1);
+        u8g2_SetFont(&u8g2, u8g2_font_helvB14_tf);
+        u8g2_DrawStr(&u8g2, 25, 35, "FLAMEX");
+        } while (u8g2_NextPage(&u8g2));
+        progress++;
+        
+        ztimer_sleep(ZTIMER_MSEC,0.1*MS_PER_SEC);
+    }
+    progress = 0;
+    float percentage =0.0;
+    char percent_str[6];
+    sprintf(percent_str, "%.1f %%", percentage);
+    while(progress<87){
+
+        u8g2_FirstPage(&u8g2);
+        do {
+            u8g2_SetDrawColor(&u8g2, 1);
+
+            u8g2_SetFont(&u8g2, u8g2_font_profont10_tf);
+            u8g2_DrawStr(&u8g2, 25, 25, "Loading...");
+
+            // Draw outline of the progress bar
+            u8g2_DrawFrame(&u8g2, 20, 35, 90, 10);
+
+            // Draw the filled part of the progress bar
+            u8g2_DrawBox(&u8g2, 22, 37, progress, 6);
+
+            // Calculate the percentage and display it
+            percentage = (progress+1) / 87.0 * 100.0;
+            sprintf(percent_str, "%.1f %%", percentage);
+            u8g2_DrawStr(&u8g2, 47, 55, percent_str);
+
+        } while (u8g2_NextPage(&u8g2));
+    
+        progress += 1;
+        ztimer_sleep(ZTIMER_MSEC,0.06*MS_PER_SEC);
+        
+    }
+    
     // Initialize network
     NetworkInit(&network);
+
+    ztimer_sleep(ZTIMER_MSEC,2*MS_PER_SEC);
 
     MQTTClientInit(&client, &network, COMMAND_TIMEOUT_MS, buf, BUF_SIZE,
                    readbuf,
                    BUF_SIZE);
-    printf("Running mqtt paho example. Type help for commands info\n");
 
     MQTTStartTask(&client);
+
 
     // Connect to MQTT broker
     mqtt_connect();
 
-    //Loop
     while(1){
+        
+        
+        u8g2_ClearBuffer(&u8g2); 
         sample = adc_sample(ADC_IN_USE, ADC_RES);
-        voltage = adc_util_map(sample, ADC_RES, 5000, 0);
+        voltage = adc_util_map(sample, ADC_RES, 3300, 0);
         flame = adc_util_map(sample, ADC_RES, 100, 1);
 
-        if (flame > FLAME_THRESHOLD) { // Flame detected
+        fire = (flame > FLAME_THRESHOLD) ? true : false;
+        
+
+        if (fire) { // Flame detected
+        
             gpio_set(BUZZER_PIN);
             xtimer_usleep(1000000);  // Wait for 1s
             gpio_clear(BUZZER_PIN);
@@ -196,15 +269,35 @@ int main(void)
 
         char voltage_str[100];
         if (voltage > 10){
+            sleep=false;
+            u8g2_SetPowerSave(&u8g2, 0);
             sprintf(voltage_str, "%.2f mV FIREEEEE", voltage);
+            u8g2_FirstPage(&u8g2);
+            do {
+                u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
+
+                u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
+            } while (u8g2_NextPage(&u8g2));
+            ztimer_sleep(ZTIMER_USEC, US_PER_SEC);
         }
         else{
+            if (!sleep){
+            sleep=true;
             sprintf(voltage_str, "%.2f mV NO FIRE :)", voltage);
+            u8g2_FirstPage(&u8g2);
+            do {
+                u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
+
+                u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
+                u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
+                u8g2_DrawStr(&u8g2, 0, 40, "Sleep mode activating. . .");
+        
+            } while (u8g2_NextPage(&u8g2));
+            }
         }
-        u8g2_ClearBuffer(&u8g2);
-        u8g2_SetFont(&u8g2, u8g2_font_ncenB08_tr);
-        u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
-        u8g2_SendBuffer(&u8g2);
+        //u8g2_SetFont(&u8g2, u8g2_font_ncenB08_tr);
+        //u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
+        //u8g2_SendBuffer(&u8g2);
 
         char json[128];
         sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\"}",
@@ -231,6 +324,7 @@ int main(void)
         }
 
         xtimer_periodic_wakeup(&last, DELAY);
+    
     }
 
     return 0;

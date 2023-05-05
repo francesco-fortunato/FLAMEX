@@ -31,7 +31,10 @@ endif
 USEMODULE += xtimer
 USEMODULE += analog_util
 USEMODULE += netdev_default
-
+USEMODULE += dht
+#FMT module convert values from the sensor as 16-bit fixed 
+#point numbers into a decimal string
+USEMODULE += fmt
 USEPKG += u8g2
 USEPKG += paho-mqtt
 
