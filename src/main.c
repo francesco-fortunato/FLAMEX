@@ -8,7 +8,7 @@
  * @{
  *
  * @file
- * @brief       FLAMEX
+ * @brief       FLAMEX. Fire Laser Alarm Monitoring and Extinguish System
  *
  * @author      Francesco Fortunato <francesco.fortunato1999@gmail.com>
  *
@@ -22,6 +22,7 @@
 #include "analog_util.h"
 #include "xtimer.h"
 #include "led.h"
+
 #include "u8g2.h"
 #include "u8x8_riotos.h"
 
@@ -295,9 +296,6 @@ int main(void)
             } while (u8g2_NextPage(&u8g2));
             }
         }
-        //u8g2_SetFont(&u8g2, u8g2_font_ncenB08_tr);
-        //u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
-        //u8g2_SendBuffer(&u8g2);
 
         char json[128];
         sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\"}",
