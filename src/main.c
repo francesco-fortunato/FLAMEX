@@ -1,44 +1,44 @@
 /*
  * Copyright (C) 2023 Francesco Fortunato
- * This file is subject to the terms and conditions of the MIT License.
- * See the file LICENSE in the top level directory for more details.
  */
 
 /**
  * @{
  *
  * @file
- * @brief       FLAMEX. Fire Laser Alarm Monitoring and Extinguish System
+ * @brief       FLAMEX
  *
  * @author      Francesco Fortunato <francesco.fortunato1999@gmail.com>
  *
  * @}
  */
+
 #include "stdio.h"
-#include <time.h>
+#include "time.h"
+#include "thread.h"
+
 #include "periph/adc.h"
 #include "periph/gpio.h"
 #include "periph/i2c.h"
 #include "analog_util.h"
+
 #include "xtimer.h"
-#include "led.h"
 
 #include "u8g2.h"
 #include "u8x8_riotos.h"
-
 
 #include "paho_mqtt.h"
 #include "MQTTClient.h"
 
 #define SSD1306_I2C_ADDR    (0x3c)
-#define ADC_IN_USE    ADC_LINE(0)
-#define ADC_RES       ADC_RES_12BIT
-#define BUZZER_PIN GPIO23
-#define DELAY         (15 * US_PER_SEC)
+#define IR_FLAME_PIN        ADC_LINE(0)
+#define GAS_PIN             ADC_LINE(2)
+#define ADC_RES             ADC_RES_12BIT
+#define BUZZER_PIN          GPIO23
+#define DELAY         (10 * US_PER_SEC)
 #define FLAME_THRESHOLD 70 // Set threshold for flame value here
 #define OLED_WIDTH    128
 #define OLED_HEIGHT   64
-
 
 // MQTT client settings
 #define BUF_SIZE                        1024
@@ -67,6 +67,13 @@ static Network network;
 static unsigned char buf[BUF_SIZE];
 static unsigned char readbuf[BUF_SIZE];
 
+char stack[THREAD_STACKSIZE_MAIN];
+kernel_pid_t thread_pid;
+
+bool fire;
+bool gas;
+bool buzz;
+
 u8g2_t u8g2;
 u8x8_riotos_t user_data = {
     .device_index = I2C_DEV(0),
@@ -86,13 +93,13 @@ static int mqtt_connect(void)
     data.keepAliveInterval = 60;
     data.cleansession = 1;
     
-    printf("flame_sensor: Connecting to MQTT Broker from %s %d\n",
+    printf("MQTT: Connecting to MQTT Broker from %s %d\n",
             MQTT_BROKER_ADDR, DEFAULT_MQTT_PORT);
-    printf("flame_sensor: Trying to connect to %s, port: %d\n",
+    printf("MQTT: Trying to connect to %s, port: %d\n",
             MQTT_BROKER_ADDR, DEFAULT_MQTT_PORT);
     ret = NetworkConnect(&network, MQTT_BROKER_ADDR, DEFAULT_MQTT_PORT);
     if (ret < 0) {
-        printf("mqtt_example: Unable to connect\n");
+        printf("MQTT: Unable to connect\n");
         return ret;
     }
     
@@ -100,20 +107,20 @@ static int mqtt_connect(void)
              data.clientID.cstring, data.password.cstring);
     ret = MQTTConnect(&client, &data);
     if (ret < 0) {
-        printf("mqtt_example: Unable to connect client %d\n", ret);
+        printf("MQTT: Unable to connect client %d\n", ret);
         int res = MQTTDisconnect(&client);
         if (res < 0) {
-            printf("mqtt_example: Unable to disconnect\n");
+            printf("MQTT: Unable to disconnect\n");
         }
         else {
-            printf("mqtt_example: Disconnect successful\n");
+            printf("MQTT: Disconnect successful\n");
         }
 
         NetworkDisconnect(&network);
         return res;
     }
     else {
-        printf("mqtt_example: Connection successfully\n");
+        printf("MQTT: Connection successfully\n");
     }
 
     printf("MQTT client connected to broker\n");
@@ -139,25 +146,50 @@ void setSSD1306PreChargePeriod(uint8_t p1, uint8_t p2)
   u8x8_cad_EndTransfer(&u8g2.u8x8);
 }
 
+void *buzzer_thread(void *arg)
+{
+    (void) arg;
+    while(1) {
+        gpio_set(BUZZER_PIN);
+        xtimer_usleep(1000000);  // Wait for 1s
+        gpio_clear(BUZZER_PIN);
+        xtimer_usleep(400000);  // Wait for 400ms
+        if (!buzz){
+            thread_sleep();
+        }
+    }
+    return NULL;
+}
+
 int main(void)
 {
     printf("You are running RIOT on a(n) %s board.\n", RIOT_BOARD);
     printf("This board features a(n) %s MCU.\n", RIOT_MCU);
     
-    if(adc_init(ADC_IN_USE) < 0){
-        printf("Failed to initialize ADC\n");
+    // Initialize the buzzer pin as output
+    if(adc_init(IR_FLAME_PIN) < 0){
+        printf("Failed to initialize ADC for flame sensor\n");
         return 1;
     } else {
-        printf("ADC OK\n");
+        printf("Flame sensor ADC OK\n");
     }
+
+    if(adc_init(GAS_PIN) < 0){
+        printf("Failed to initialize ADC for gas sensor\n");
+        return 1;
+    } else {
+        printf("Gas sensor ADC OK\n");
+    }
+
 
     // Initialize the buzzer pin as output
     if(gpio_init(BUZZER_PIN, GPIO_OUT) < 0) {
-        printf("Failed to initialize buzzer\n");
+        printf("Failed to initialize buzzer pin\n");
         return 1;
     } else {
-        printf("Buzzer OK\n");
+        printf("Buzzer pin OK\n");
     }
+
 
     // Initialize the display
     u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0,
@@ -176,19 +208,20 @@ int main(void)
 
     //Timer
     xtimer_ticks32_t last = xtimer_now();
-    int sample = 0;
+    int sample_fire = 0;
+    int sample_gas = 0;
     int flame = 0;
-    float voltage = 0;
+    int gas_value = 0;
+    float voltage_flame = 0;
+    float voltage_gas = 0;
 
-    bool fire = false;
+    fire = false;
+    gas = false;
     bool sleep = false;
-
-    
 
     //ztimer_sleep(ZTIMER_MSEC, 10 * MS_PER_SEC);
     int progress=0;
     while(progress<30){
-        
         u8g2_FirstPage(&u8g2);
         do {
             u8g2_SetDrawColor(&u8g2, 1);
@@ -244,62 +277,85 @@ int main(void)
 
     // Connect to MQTT broker
     mqtt_connect();
-
+    thread_pid = thread_create(stack, sizeof(stack),
+                    THREAD_PRIORITY_MAIN - 1,
+                    THREAD_CREATE_SLEEPING,
+                    buzzer_thread,
+                    NULL, "buzzer_thread");
     while(1){
         
-        
         u8g2_ClearBuffer(&u8g2); 
-        sample = adc_sample(ADC_IN_USE, ADC_RES);
-        voltage = adc_util_map(sample, ADC_RES, 3300, 0);
-        flame = adc_util_map(sample, ADC_RES, 100, 1);
+        sample_fire = adc_sample(IR_FLAME_PIN, ADC_RES);
+        voltage_flame = adc_util_map(sample_fire, ADC_RES, 3300, 0);
+        flame = adc_util_map(sample_fire, ADC_RES, 100, 1);
+        
+        sample_gas = adc_sample(GAS_PIN, ADC_RES);
+        voltage_gas = adc_util_map(sample_gas, ADC_RES, 4095, 0);
+        gas_value = adc_util_map(sample_gas, ADC_RES, 1, 100);
 
         fire = (flame > FLAME_THRESHOLD) ? true : false;
+        gas = (gas_value > 40) ? true : false;
         
-
-        if (fire) { // Flame detected
-        
-            gpio_set(BUZZER_PIN);
-            xtimer_usleep(1000000);  // Wait for 1s
-            gpio_clear(BUZZER_PIN);
-            xtimer_usleep(400000);  // Wait for 400ms
-        } else {
-            gpio_clear(BUZZER_PIN);
+        if(gas || fire) {
+            buzz = true;
+            thread_wakeup(thread_pid);
+        }
+        else{
+            buzz = false;
         }
 
-        printf("Voltage: %.2f mV\tFlame: %d\n", voltage, flame);
+        printf("Voltage_fire: %.2f mV\tFlame: %d\n", voltage_flame, flame);
+        printf("Voltage_gas: %.2f mV\tGAS: %d\n", voltage_gas, gas_value);
+
+        if(gas){
+            printf("GAS DETECTED\n");
+        }
+        else{
+            printf("NO GAS DETECTED\n");
+        }
 
         char voltage_str[100];
-        if (voltage > 10){
+        if (voltage_flame > 10){
             sleep=false;
             u8g2_SetPowerSave(&u8g2, 0);
-            sprintf(voltage_str, "%.2f mV FIREEEEE", voltage);
+            sprintf(voltage_str, "%.2f mV FIREEEEE", voltage_flame);
             u8g2_FirstPage(&u8g2);
             do {
                 u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
-
                 u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
+                if(gas){
+                    u8g2_DrawStr(&u8g2, 0, 40, "GAS DETECTED");
+                }
+                else{
+                    u8g2_DrawStr(&u8g2, 0, 40, "NO GAS DETECTED");
+                }
+
             } while (u8g2_NextPage(&u8g2));
             ztimer_sleep(ZTIMER_USEC, US_PER_SEC);
         }
         else{
             if (!sleep){
             sleep=true;
-            sprintf(voltage_str, "%.2f mV NO FIRE :)", voltage);
+            sprintf(voltage_str, "%.2f mV NO FIRE :)", voltage_flame);
             u8g2_FirstPage(&u8g2);
             do {
                 u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
 
                 u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
-                u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
-                u8g2_DrawStr(&u8g2, 0, 40, "Sleep mode activating. . .");
+                if(gas){
+                    u8g2_DrawStr(&u8g2, 0, 40, "GAS DETECTED");
+                }
+                else{
+                    u8g2_DrawStr(&u8g2, 0, 40, "NO GAS DETECTED");
+                }
         
             } while (u8g2_NextPage(&u8g2));
             }
         }
 
-        char json[128];
-        sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\"}",
-                        0, voltage, flame);
+        char json[200];
+        sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\", \"gas\": \"%.2d\"}",
+                        0, voltage_flame, flame, gas_value);
         char* msg = json;
         //MQTT
         // Publish flame value to MQTT broker
@@ -320,10 +376,9 @@ int main(void)
                 "with QOS %d\n",
                 (char *)message.payload, topic, (int)message.qos);
         }
-
         xtimer_periodic_wakeup(&last, DELAY);
-    
     }
 
     return 0;
 }
+

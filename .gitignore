@@ -72,7 +72,7 @@ dist/
 **/*.crt
 **/*.pem
 **/*.key
-**/Certificates
+**/certs
 **/start.sh
 
 # Ignore AWS IoT Device SDK for Python v2
