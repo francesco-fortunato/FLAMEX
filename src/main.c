@@ -24,21 +24,16 @@
 
 #include "xtimer.h"
 
-#include "u8g2.h"
-#include "u8x8_riotos.h"
-
 #include "paho_mqtt.h"
 #include "MQTTClient.h"
 
-#define SSD1306_I2C_ADDR    (0x3c)
 #define IR_FLAME_PIN        ADC_LINE(0)
 #define GAS_PIN             ADC_LINE(2)
 #define ADC_RES             ADC_RES_12BIT
 #define BUZZER_PIN          GPIO23
-#define DELAY         (10 * US_PER_SEC)
-#define FLAME_THRESHOLD 70 // Set threshold for flame value here
-#define OLED_WIDTH    128
-#define OLED_HEIGHT   64
+#define RELAY_PIN           GPIO12
+#define DELAY               (10 * US_PER_SEC)
+#define FLAME_THRESHOLD     70 // Set threshold for flame value here
 
 // MQTT client settings
 #define BUF_SIZE                        1024
@@ -67,20 +62,15 @@ static Network network;
 static unsigned char buf[BUF_SIZE];
 static unsigned char readbuf[BUF_SIZE];
 
-char stack[THREAD_STACKSIZE_MAIN];
-kernel_pid_t thread_pid;
+char stack1[THREAD_STACKSIZE_MAIN];
+char stack2[THREAD_STACKSIZE_MAIN];
+kernel_pid_t thread_pid_buzzer;
+kernel_pid_t thread_pid_pump;
 
 bool fire;
 bool gas;
 bool buzz;
-
-u8g2_t u8g2;
-u8x8_riotos_t user_data = {
-    .device_index = I2C_DEV(0),
-    .pin_cs = GPIO_UNDEF,
-    .pin_dc = GPIO_UNDEF,
-    .pin_reset = GPIO16,
-};
+bool pump;
 
 static int mqtt_connect(void)
 {
@@ -127,34 +117,34 @@ static int mqtt_connect(void)
     return 0;
 }
 
-// value from 0 to 7, higher values more brighter
-void setSSD1306VcomDeselect(uint8_t v)
-{	
-  u8x8_cad_StartTransfer(&u8g2.u8x8);
-  u8x8_cad_SendCmd(&u8g2.u8x8, 0x0db);
-  u8x8_cad_SendArg(&u8g2.u8x8, v << 4);
-  u8x8_cad_EndTransfer(&u8g2.u8x8);
-}
-
-// p1: 1..15, higher values, more darker, however almost no difference with 3 or more
-// p2: 1..15, higher values, more brighter
-void setSSD1306PreChargePeriod(uint8_t p1, uint8_t p2)
-{	
-  u8x8_cad_StartTransfer(&u8g2.u8x8);
-  u8x8_cad_SendCmd(&u8g2.u8x8, 0x0d9);
-  u8x8_cad_SendArg(&u8g2.u8x8, (p2 << 4) | p1 );
-  u8x8_cad_EndTransfer(&u8g2.u8x8);
-}
-
 void *buzzer_thread(void *arg)
 {
     (void) arg;
     while(1) {
-        gpio_set(BUZZER_PIN);
-        xtimer_usleep(1000000);  // Wait for 1s
-        gpio_clear(BUZZER_PIN);
-        xtimer_usleep(400000);  // Wait for 400ms
-        if (!buzz){
+        if(buzz) {
+            printf("BUZZ ON\n");
+            gpio_set(BUZZER_PIN);
+            xtimer_usleep(1000000);  // Wait for 1s
+            gpio_clear(BUZZER_PIN);
+            xtimer_usleep(400000);  // Wait for 400ms
+        } else {
+            thread_sleep();
+        }
+    }
+    return NULL;
+}
+
+void *pump_thread(void *arg)
+{
+    (void) arg;
+    while(1) {
+        if (pump) {
+            printf("POMPA PARTITA\n");
+            gpio_clear(RELAY_PIN);
+            xtimer_sleep(5);
+        } else {
+            printf("POMPA FERMATA\n");
+            gpio_set(RELAY_PIN);
             thread_sleep();
         }
     }
@@ -166,7 +156,6 @@ int main(void)
     printf("You are running RIOT on a(n) %s board.\n", RIOT_BOARD);
     printf("This board features a(n) %s MCU.\n", RIOT_MCU);
     
-    // Initialize the buzzer pin as output
     if(adc_init(IR_FLAME_PIN) < 0){
         printf("Failed to initialize ADC for flame sensor\n");
         return 1;
@@ -181,7 +170,6 @@ int main(void)
         printf("Gas sensor ADC OK\n");
     }
 
-
     // Initialize the buzzer pin as output
     if(gpio_init(BUZZER_PIN, GPIO_OUT) < 0) {
         printf("Failed to initialize buzzer pin\n");
@@ -190,21 +178,25 @@ int main(void)
         printf("Buzzer pin OK\n");
     }
 
+    // Initialize the relay pin as output
+    if(gpio_init(RELAY_PIN, GPIO_OUT) < 0) {
+        printf("Failed to initialize relay pin\n");
+        return 1;
+    } else {
+        gpio_set(RELAY_PIN);
+        printf("Relay pin OK\n");
+    }
 
-    // Initialize the display
-    u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0,
-                                       u8x8_byte_hw_i2c_riotos,
-                                       u8x8_gpio_and_delay_riotos);
-    u8g2_SetUserPtr(&u8g2, &user_data);
-    u8g2_SetI2CAddress(&u8g2, SSD1306_I2C_ADDR);
-    u8g2_InitDisplay(&u8g2);
-    u8g2_SetPowerSave(&u8g2, 0);  
-    u8g2_ClearDisplay(&u8g2);
-    // Set VCOM deselect and pre-charge period
-    setSSD1306VcomDeselect(7);
-    setSSD1306PreChargePeriod(1, 15);
-
-    //u8g2_SetContrast(&u8g2, 0);
+    thread_pid_buzzer = thread_create(stack1, sizeof(stack1),
+                    THREAD_PRIORITY_MAIN + 2,
+                    THREAD_CREATE_SLEEPING,
+                    buzzer_thread,
+                    NULL, "buzzer_thread");
+    thread_pid_pump = thread_create(stack2, sizeof(stack2),
+                    THREAD_PRIORITY_MAIN + 1,
+                    THREAD_CREATE_SLEEPING,
+                    pump_thread,
+                    NULL, "pump_thread");
 
     //Timer
     xtimer_ticks32_t last = xtimer_now();
@@ -217,52 +209,11 @@ int main(void)
 
     fire = false;
     gas = false;
-    bool sleep = false;
+    pump = false;
+    buzz = false;
 
-    //ztimer_sleep(ZTIMER_MSEC, 10 * MS_PER_SEC);
-    int progress=0;
-    while(progress<30){
-        u8g2_FirstPage(&u8g2);
-        do {
-            u8g2_SetDrawColor(&u8g2, 1);
-        u8g2_SetFont(&u8g2, u8g2_font_helvB14_tf);
-        u8g2_DrawStr(&u8g2, 25, 35, "FLAMEX");
-        } while (u8g2_NextPage(&u8g2));
-        progress++;
-        
-        ztimer_sleep(ZTIMER_MSEC,0.1*MS_PER_SEC);
-    }
-    progress = 0;
-    float percentage =0.0;
-    char percent_str[6];
-    sprintf(percent_str, "%.1f %%", percentage);
-    while(progress<87){
+    ztimer_sleep(ZTIMER_MSEC, 7 * MS_PER_SEC);
 
-        u8g2_FirstPage(&u8g2);
-        do {
-            u8g2_SetDrawColor(&u8g2, 1);
-
-            u8g2_SetFont(&u8g2, u8g2_font_profont10_tf);
-            u8g2_DrawStr(&u8g2, 25, 25, "Loading...");
-
-            // Draw outline of the progress bar
-            u8g2_DrawFrame(&u8g2, 20, 35, 90, 10);
-
-            // Draw the filled part of the progress bar
-            u8g2_DrawBox(&u8g2, 22, 37, progress, 6);
-
-            // Calculate the percentage and display it
-            percentage = (progress+1) / 87.0 * 100.0;
-            sprintf(percent_str, "%.1f %%", percentage);
-            u8g2_DrawStr(&u8g2, 47, 55, percent_str);
-
-        } while (u8g2_NextPage(&u8g2));
-    
-        progress += 1;
-        ztimer_sleep(ZTIMER_MSEC,0.06*MS_PER_SEC);
-        
-    }
-    
     // Initialize network
     NetworkInit(&network);
 
@@ -277,16 +228,11 @@ int main(void)
 
     // Connect to MQTT broker
     mqtt_connect();
-    thread_pid = thread_create(stack, sizeof(stack),
-                    THREAD_PRIORITY_MAIN - 1,
-                    THREAD_CREATE_SLEEPING,
-                    buzzer_thread,
-                    NULL, "buzzer_thread");
+
     while(1){
         
-        u8g2_ClearBuffer(&u8g2); 
         sample_fire = adc_sample(IR_FLAME_PIN, ADC_RES);
-        voltage_flame = adc_util_map(sample_fire, ADC_RES, 3300, 0);
+        voltage_flame = adc_util_map(sample_fire, ADC_RES, 4095, 0);
         flame = adc_util_map(sample_fire, ADC_RES, 100, 1);
         
         sample_gas = adc_sample(GAS_PIN, ADC_RES);
@@ -298,64 +244,41 @@ int main(void)
         
         if(gas || fire) {
             buzz = true;
-            thread_wakeup(thread_pid);
+            thread_wakeup(thread_pid_buzzer);
+            if(gas){
+                printf("GAS DETECTED\n");
+            }
+            else{
+                printf("NO GAS DETECTED\n");
+            }
+            if(fire){
+                printf("FIRE DETECTED\n");
+                pump = true;
+                thread_wakeup(thread_pid_pump);
+            }
+            else{
+                printf("NO FIRE DETECTED\n");
+                pump = false;
+            }
         }
         else{
             buzz = false;
+            pump = false;
         }
+
 
         printf("Voltage_fire: %.2f mV\tFlame: %d\n", voltage_flame, flame);
         printf("Voltage_gas: %.2f mV\tGAS: %d\n", voltage_gas, gas_value);
 
-        if(gas){
-            printf("GAS DETECTED\n");
-        }
-        else{
-            printf("NO GAS DETECTED\n");
-        }
-
-        char voltage_str[100];
-        if (voltage_flame > 10){
-            sleep=false;
-            u8g2_SetPowerSave(&u8g2, 0);
-            sprintf(voltage_str, "%.2f mV FIREEEEE", voltage_flame);
-            u8g2_FirstPage(&u8g2);
-            do {
-                u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
-                u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
-                if(gas){
-                    u8g2_DrawStr(&u8g2, 0, 40, "GAS DETECTED");
-                }
-                else{
-                    u8g2_DrawStr(&u8g2, 0, 40, "NO GAS DETECTED");
-                }
-
-            } while (u8g2_NextPage(&u8g2));
-            ztimer_sleep(ZTIMER_USEC, US_PER_SEC);
-        }
-        else{
-            if (!sleep){
-            sleep=true;
-            sprintf(voltage_str, "%.2f mV NO FIRE :)", voltage_flame);
-            u8g2_FirstPage(&u8g2);
-            do {
-                u8g2_SetFont(&u8g2, u8g2_font_helvR08_tf);
-
-                u8g2_DrawStr(&u8g2, 0, 20, voltage_str);
-                if(gas){
-                    u8g2_DrawStr(&u8g2, 0, 40, "GAS DETECTED");
-                }
-                else{
-                    u8g2_DrawStr(&u8g2, 0, 40, "NO GAS DETECTED");
-                }
-        
-            } while (u8g2_NextPage(&u8g2));
-            }
-        }
-
         char json[200];
-        sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\", \"gas\": \"%.2d\"}",
+        if (!pump){
+            sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\", \"gas\": \"%.2d\", \"pump\": \"NON_ACTIVE\"}",
                         0, voltage_flame, flame, gas_value);
+        }
+        else{
+            sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\", \"gas\": \"%.2d\", \"pump\": \"ACTIVE\"}",
+                        0, voltage_flame, flame, gas_value);
+        }
         char* msg = json;
         //MQTT
         // Publish flame value to MQTT broker

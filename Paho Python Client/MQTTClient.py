@@ -20,37 +20,18 @@ def on_message(_client, _userdata, message):
     # Parse the incoming JSON string into a dictionary
     payload = json.loads(message.payload)
 
-    # If "flame" key exists, publish in MQTT_PUB_TOPIC_FIRE
-    if "flame" in payload:
+    # Add datetime information as the second field
+    new_payload = {
+        'id': payload['id'],
+        'timestamp': date,
+        'gas': payload['gas'],
+        'flame': payload['flame'],
+        'pump': payload['pump']
+    }
+    json_payload = json.dumps(new_payload)
 
-        # Add datetime information as the second field
-        new_payload = {
-            'id': payload['id'],
-            'datetime': date,
-            'voltage': payload['voltage'],
-            'flame': payload['flame']
-        }
-
-        # Convert the resulting dictionary back into a JSON string
-        json_payload = json.dumps(new_payload)
-
-        # Topic will be MQTT_PUB_TOPIC_FIRE
-        topic = MQTT_PUB_TOPIC_FIRE
-
-    else:
-        # Do something if "fire" key does not exist
-        new_payload = {
-            'id': payload['id'],
-            'datetime': date,
-            'voltage': payload['voltage'],
-            'gas': payload['gas']
-        }
-
-        # Convert the resulting dictionary back into a JSON string
-        json_payload = json.dumps(new_payload)
-
-        # Topic will be MQTT_PUB_TOPIC_AIR
-        topic = MQTT_PUB_TOPIC_AIR
+    # Topic will be MQTT_PUB_TOPIC_AIR
+    topic = MQTT_PUB_TOPIC_FIRE
 
     success = myMQTTClient.publish(topic, json_payload, 0)
 
@@ -115,7 +96,6 @@ myMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
 #TOPIC
 MQTT_SUB_TOPIC = "flamex"
 MQTT_PUB_TOPIC_FIRE = "sensor/fire"
-MQTT_PUB_TOPIC_AIR = "sensor/gas"
 
 # Create a MQTT client instance
 MQTT_CLIENT = mqtt.Client(client_id=MQTT_BROKER_CLIENT_ID)
