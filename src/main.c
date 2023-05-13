@@ -38,7 +38,7 @@
 // MQTT client settings
 #define BUF_SIZE                        1024
 
-#define MQTT_BROKER_ADDR "192.168.252.13"
+#define MQTT_BROKER_ADDR "192.168.13.13"
 #define MQTT_TOPIC "flamex"
 #define MQTT_VERSION_v311               4       /* MQTT v3.1.1 version is 4 */
 #define COMMAND_TIMEOUT_MS              4000
@@ -273,11 +273,11 @@ int main(void)
         char json[200];
         if (!pump){
             sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\", \"gas\": \"%.2d\", \"pump\": \"NON_ACTIVE\"}",
-                        0, voltage_flame, flame, gas_value);
+                        1, voltage_flame, flame, gas_value);
         }
         else{
             sprintf(json, "{\"id\": \"%d\", \"voltage\": \"%.2f\", \"flame\": \"%d\", \"gas\": \"%.2d\", \"pump\": \"ACTIVE\"}",
-                        0, voltage_flame, flame, gas_value);
+                        1, voltage_flame, flame, gas_value);
         }
         char* msg = json;
         //MQTT

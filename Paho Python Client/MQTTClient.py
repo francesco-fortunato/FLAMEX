@@ -20,23 +20,30 @@ def on_message(_client, _userdata, message):
     # Parse the incoming JSON string into a dictionary
     payload = json.loads(message.payload)
 
+    pump = False
+
+    if (payload['pump'] == "ACTIVE"):
+        pump = True
+
     # Add datetime information as the second field
     new_payload = {
         'id': payload['id'],
         'timestamp': date,
-        'gas': payload['gas'],
-        'flame': payload['flame'],
-        'pump': payload['pump']
+        'gas': int(payload['gas']),
+        'flame': int(payload['flame']),
+        'pump': pump
     }
+
     json_payload = json.dumps(new_payload)
 
     # Topic will be MQTT_PUB_TOPIC_AIR
-    topic = MQTT_PUB_TOPIC_FIRE
+    topic = MQTT_PUB_TOPIC + payload['id'] + "/data"
 
     success = myMQTTClient.publish(topic, json_payload, 0)
 
     time.sleep(5)
-    print(success)
+    if (success):
+        print("Message published to topic "+ topic)
     print('-----')
     
 # On connect subscribe to topic
@@ -44,7 +51,7 @@ def on_connect(_client, _userdata, _flags, result):
     """Subscribe to input topic"""
 
     print('Connected ' + str(result))
-    myMQTTClient.publish(MQTT_PUB_TOPIC_FIRE, "ciao", 0)
+    myMQTTClient.publish(MQTT_PUB_TOPIC, "ciao", 0)
     print("ho inviato ciao")
 
     print('Subscribing to ' + MQTT_SUB_TOPIC)
@@ -95,7 +102,7 @@ myMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
 
 #TOPIC
 MQTT_SUB_TOPIC = "flamex"
-MQTT_PUB_TOPIC_FIRE = "sensor/fire"
+MQTT_PUB_TOPIC = "device/"
 
 # Create a MQTT client instance
 MQTT_CLIENT = mqtt.Client(client_id=MQTT_BROKER_CLIENT_ID)
