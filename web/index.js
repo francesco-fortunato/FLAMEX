@@ -68,7 +68,7 @@ function createPlot(name, val_y) {
     var chartDataGas = {
       labels: values_x,
       datasets: [{
-        backgroundColor: colors[2], // Use a different color for the gas chart
+        backgroundColor: colors[0], // Use a different color for the gas chart
         data: val_y
       }]
     };
