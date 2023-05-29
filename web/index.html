@@ -7,14 +7,13 @@
     <link rel="stylesheet" href="index.css">
     <script src="index.js"></script>
 </head>
-
 <body onload="init()">
     <h1>FLAMEX</h1>
-    <p>This is the individual project for the Internet of Things course of the a.y. 2022-2023 at "Sapienza" university. 
+    <p>Welcome to FLAMEX, the individual project for the Internet of Things course of the academic year 2022-2023 at "Sapienza" University. This project aims to demonstrate the practical implementation and utilization of IoT technologies.</p>
 
     <div class="container">
         <div class="chart1">
-            <h3>The chart shows the values of the data retrieved by sensors</h3>
+            <h3>This chart shows the values retrieved by IR Flame sensors</h3>
             <canvas id="Chart1" style="width:100%;max-width:600px"></canvas>
         </div>
     
@@ -24,8 +23,18 @@
         </div>
         
     </div>
-
-
+    <div class="container">
+        <div class="chart2">
+            <h3>This chart shows the values retrieved by gas sensor</h3>
+            <canvas id="Chart2" style="width:100%;max-width:600px"></canvas>
+        </div>
+    
+        <div class="statistics">
+            <h3>Stats:</h3>
+            
+        </div>
+        
+    </div>
 
 </body>
 </html>
