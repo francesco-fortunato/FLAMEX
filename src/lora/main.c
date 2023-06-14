@@ -12,15 +12,14 @@
  * @file
  * @brief       Example demonstrating the use of LoRaWAN with RIOT
  *
- * @authors      Francesco Fortunato <francesco.fortunato1999@gmail.com>,
- *               Valerio Francione <francione97@gmail.com>,
- *               Andrea Sepielli <andreasepielli97@gmail.com>
+ * @authors      Francesco Fortunato <francesco.fortunato1999@gmail.com>
  *
  * @}
  */
 
 
 #include "stdio.h"
+#include "stdlib.h"
 #include "time.h"
 #include "thread.h"
 
@@ -32,8 +31,8 @@
 #define IR_FLAME_PIN        ADC_LINE(0)
 #define GAS_PIN             ADC_LINE(2)
 #define ADC_RES             ADC_RES_12BIT
-#define BUZZER_PIN          GPIO23
-#define RELAY_PIN           GPIO12
+#define BUZZER_PIN          GPIO_PIN(0, 23)
+#define RELAY_PIN           GPIO_PIN(0, 12)
 #define DELAY               (60 * US_PER_SEC)
 #define FLAME_THRESHOLD     70 // Set threshold for flame value here
 
