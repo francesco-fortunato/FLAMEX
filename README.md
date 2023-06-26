@@ -82,7 +82,7 @@ This is a low cost, small size Submersible Pump Motor which can be operated from
 
 ## Network Architecture
 
-[alt](img/Schermata del 2023-06-26 14-04-10.png)
+![alt](img/network.png)
 
 ### IoT Devices with RIOT OS
 The pet tracking system utilizes IoT devices equipped with the RIOT OS (Real-Time Operating System). These devices, such as the ESP32 v2 Heltec LoRa board, incorporate the necessary hardware components, to track and monitor pets effectively. RIOT OS provides a lightweight and efficient operating system tailored for resource-constrained IoT devices, ensuring optimal performance and low power consumption.
