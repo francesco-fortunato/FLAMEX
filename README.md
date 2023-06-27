@@ -107,6 +107,62 @@ The pet tracking system leverages several components within the AWS ecosystem to
 
 - API Gateway: AWS API Gateway acts as the entry point for the web interface, providing a secure and scalable API endpoint. It enables seamless communication between the web interface and the backend services, ensuring a smooth user experience.
 
+## How to run
+
+### Prerequisites
+
+- Docker
+- AWS account
+- Mosquitto
+- (Bridge Mosquitto MQTT Broker to IoT)[https://aws.amazon.com/it/blogs/iot/how-to-bridge-mosquitto-mqtt-broker-to-aws-iot/]
+
+### Before Starting
+Clone the repository
+```
+https://github.com/francesco-fortunato/PaaT.git
+```
+
+### Init and update the submodules
+Execute `cd FLAMEX`.
+
+#### Init submodule
+```
+git submodule init
+```
+#### Update the submodule
+```
+git submodule update
+```
+
+## Wi-fi
+
+### Setup
+
+You first need to add your AWS certificates in the `src/w-fi/Paho Python Client` folder, the following are needed:
+- `Paho Python Client/root-CA.crt`
+- `Paho Python Client/<name>.private.key`
+- `Paho Python Client/<name>.cert.pem`
+
+Moreover be sure to have `pyconfig` installed. You have to add also a pyconfig.py file in which you have to define the relative path of those certificates along with your AWS endpoint and your broker address. 
+
+### Configuration
+
+First of all you have to start mosquitto with the following command inside its folder: `./broker_mqtts broker.conf`.
+
+Then, you have to go in `src/w-fi/Paho Python Client` and run the following command: `python3 MQTTClient.py`.
+
+Finally you have to modify the IP address inside the `src/wi-fi/main.c` file, and you have to edit the `WIFI_SSID` and `WIFI_PASS` with your hotspot wi-fi.
+
+### Run
+
+Now, you can flash the board using the command `sudo BOARD=esp32-heltec-lora32-v2 BUILD_IN_DOCKER=1 DOCKER="sudo docker" PORT="/dev/ttyUSB0" make all flash term`
+
+## LoRa
+
+### Run
+
+For the LoRa part, you have simply to run `sudo BOARD=? BUILD_IN_DOCKER=1 DOCKER="sudo docker" PORT="/dev/ttyUSB0" make all flash term` substitue the '?' with your board (it doesn't work for the esp32-heltec-lora32-v2 board).
+
 The user interface is accessible through this [link](https://main.d21pf4jxloa0cz.amplifyapp.com/)
 
 - [Blog Post](https://www.hackster.io/francescofortunato1999/a-low-power-fire-alert-system-application-with-riot-os-cdb669)
