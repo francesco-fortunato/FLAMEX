@@ -114,7 +114,7 @@ The pet tracking system leverages several components within the AWS ecosystem to
 - Docker
 - AWS account
 - Mosquitto
-- (Bridge Mosquitto MQTT Broker to IoT)[https://aws.amazon.com/it/blogs/iot/how-to-bridge-mosquitto-mqtt-broker-to-aws-iot/]
+- [Bridge Mosquitto MQTT Broker to IoT](https://aws.amazon.com/it/blogs/iot/how-to-bridge-mosquitto-mqtt-broker-to-aws-iot/)
 
 ### Before Starting
 Clone the repository
