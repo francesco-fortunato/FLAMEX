@@ -125,7 +125,7 @@ The pet tracking system leverages several components within the AWS ecosystem to
 ### Before Starting
 Clone the repository
 ```
-https://github.com/francesco-fortunato/PaaT.git
+https://github.com/francesco-fortunato/FLAMEX.git
 ```
 
 ### Init and update the submodules
