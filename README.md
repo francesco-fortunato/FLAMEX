@@ -169,7 +169,8 @@ Now, you can flash the board using the command `sudo BOARD=esp32-heltec-lora32-v
 
 For the LoRa part, you have simply to run `sudo BOARD=? BUILD_IN_DOCKER=1 DOCKER="sudo docker" PORT="/dev/ttyUSB0" make all flash term` substitue the '?' with your board (it doesn't work for the esp32-heltec-lora32-v2 board).
 
-The user interface is accessible through this [link](https://main.d21pf4jxloa0cz.amplifyapp.com/)
+## Links
 
+- [User Interface](https://main.d21pf4jxloa0cz.amplifyapp.com/)
 - [Blog Post](https://www.hackster.io/francescofortunato1999/a-low-power-fire-alert-system-application-with-riot-os-cdb669)
 - [Video Demonstration](https://youtu.be/Z1_pUY_jkf4)
