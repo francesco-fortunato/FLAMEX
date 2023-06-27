@@ -3,6 +3,12 @@
 
 FLAMEX is an IoT project designed to detect fires and extinguish them automatically. The system uses an ESP32 Heltec LoRa32 V2 board, Riot OS, and AWS IoT Core, DynamoDB, MQTT, and Wi-Fi connection to communicate and store data. 
 
+The problem I aim to address is the detection of fire and gas leaks in a building or residential environment. These incidents pose serious risks to life and property and require timely detection and response.
+
+IoT technology enables us to create a connected fire alarm system that enhances traditional fire detection capabilities.
+
+Application Scenario: develop a smart fire alarm system for residential buildings. The system will continuously monitor the environment for fire and gas hazards, allowing for early detection and rapid response. By integrating IoT capabilities, the system can provide notifications, automate emergency protocols, and facilitate remote monitoring and control.
+
 ## Architecture
 
 The circuit is the following:
