@@ -38,7 +38,7 @@
 // MQTT client settings
 #define BUF_SIZE                        1024
 
-#define MQTT_BROKER_ADDR "192.168.13.13"
+#define MQTT_BROKER_ADDR "192.168.168.13"
 #define MQTT_TOPIC "flamex"
 #define MQTT_VERSION_v311               4       /* MQTT v3.1.1 version is 4 */
 #define COMMAND_TIMEOUT_MS              4000

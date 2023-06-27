@@ -52,7 +52,7 @@ def on_connect(_client, _userdata, _flags, result):
 
     print('Connected ' + str(result))
     myMQTTClient.publish(MQTT_PUB_TOPIC, "ciao", 0)
-    print("ho inviato ciao")
+    print("connected to aws")
 
     print('Subscribing to ' + MQTT_SUB_TOPIC)
     MQTT_CLIENT.subscribe(MQTT_SUB_TOPIC)

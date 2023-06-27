@@ -21,7 +21,7 @@ function displayDataOnChart(data_input) {
   const parsed_data = JSON.parse(data_input);
 
   console.log(parsed_data);
-  
+
   // Clear the arrays before populating them with new data
   values_x = [];
   values_y = [];
@@ -36,6 +36,7 @@ function displayDataOnChart(data_input) {
 
   for (let i = 0; i < parsed_data.length; i++) {
     coluomns_colors.push(colors[1]);
+    coluomns_colors_gas.push(colors[0]);
     const sampleTime = new Date(parsed_data[i]["sample_time"]);
     label = sampleTime.toLocaleString(); // Convert sample time to Locale format
 
@@ -57,20 +58,32 @@ function displayDataOnChart(data_input) {
   ch2.data.datasets[0].data = values_y_gas;
   ch2.update();
 
+  ch3.data.labels = values_x.slice(-60); // Update the fire sensor chart data with the last hour values
+  ch3.data.datasets[0].data = values_y.slice(-60);
+  ch3.update();
+
+  ch4.data.labels = values_x.slice(-60); // Update the gas sensor chart data with the last hour values
+  ch4.data.datasets[0].data = values_y_gas.slice(-60);
+  ch4.update();
+
   calculateStatistics();
 }
+
 
 
 function calculateStatistics() {
   const lastHourData = input.slice(-60); // Retrieve data from the last hour
   const lastHourDataGas = input2.slice(-60); // Retrieve gas data from the last hour
+  const lastHourDataFire = input.slice(-60); // Retrieve fire data from the last hour
 
   // Calculate aggregated statistics
   const flameStats = calculateAggregatedStats(lastHourData);
   const gasStats = calculateAggregatedStats(lastHourDataGas);
+  const fireStats = calculateAggregatedStats(lastHourDataFire);
 
-  displayStatsOnChart(flameStats, gasStats);
+  displayStatsOnChart(flameStats, gasStats, fireStats);
 }
+
 
 function calculateAggregatedStats(data) {
   const values = data.map((entry) => entry[1]); // Extract the values from the data array
@@ -91,9 +104,11 @@ function calculateAverage(values) {
   return sum / values.length;
 }
 
-function displayStatsOnChart(flameStats, gasStats) {
+function displayStatsOnChart(flameStats, gasStats, fireStats) {
   const statsCanvas1 = document.getElementById("Chart1Stats");
   const statsCanvas2 = document.getElementById("Chart2Stats");
+  const statsCanvas3 = document.getElementById("Chart3Stats"); // Get the fire sensor statistics canvas
+  const statsCanvas4 = document.getElementById("Chart4Stats"); // Get the gas sensor statistics canvas
 
   ch1Stats = new Chart(statsCanvas1, {
     type: "bar",
@@ -142,7 +157,56 @@ function displayStatsOnChart(flameStats, gasStats) {
       }
     }
   });
+
+  ch3Stats = new Chart(statsCanvas3, { // Create a new chart for fire sensor statistics
+    type: "bar",
+    data: {
+      labels: ["Average", "Minimum", "Maximum"],
+      datasets: [{
+        backgroundColor: colors[1],
+        data: [
+          fireStats.average.toFixed(2),
+          fireStats.minimum,
+          fireStats.maximum
+        ]
+      }]
+    },
+    options: {
+      legend: { display: false },
+      title: { display: true },
+      scales: {
+        yAxes: [{
+          ticks: { beginAtZero: true }
+        }]
+      }
+    }
+  });
+
+  ch4Stats = new Chart(statsCanvas4, { // Create a new chart for gas sensor statistics
+    type: "bar",
+    data: {
+      labels: ["Average", "Minimum", "Maximum"],
+      datasets: [{
+        backgroundColor: colors[0],
+        data: [
+          gasStats.average.toFixed(2),
+          gasStats.minimum,
+          gasStats.maximum
+        ]
+      }]
+    },
+    options: {
+      legend: { display: false },
+      title: { display: true },
+      scales: {
+        yAxes: [{
+          ticks: { beginAtZero: true }
+        }]
+      }
+    }
+  });
 }
+
 
 function createPlot(name, val_y) {
   var chartData = {
@@ -190,8 +254,55 @@ function createPlot(name, val_y) {
       }
     });
     return ch2;
+  } else if (name === "Chart3") { // Create a new chart for the fire sensor
+    var chartDataFire = {
+      labels: values_x,
+      datasets: [{
+        backgroundColor: coluomns_colors,
+        data: val_y
+      }]
+    };
+    ch3 = new Chart(name, {
+      type: "bar",
+      data: chartDataFire,
+      options: {
+        legend: { display: false },
+        title: { display: true },
+        scales: {
+          yAxes: [{
+            ticks: { beginAtZero: true }
+          }]
+        }
+      }
+    });
+    return ch3;
+  } else if (name === "Chart4") { // Create a new chart for the gas sensor
+    var chartDataGas = {
+      labels: values_x,
+      datasets: [{
+        backgroundColor: colors[0],
+        data: val_y
+      }]
+    };
+    ch4 = new Chart(name, {
+      type: "bar",
+      data: chartDataGas,
+      options: {
+        legend: { display: false },
+        title: { display: true },
+        scales: {
+          yAxes: [{
+            ticks: { beginAtZero: true }
+          }]
+        }
+      }
+    });
+    return ch4;
   }
 }
+
+
+
 
 function callAPI(){
   var headers = new Headers();
@@ -204,11 +315,14 @@ function callAPI(){
   .then(response => response.text()).then(result => displayDataOnChart(result))
 }
 
-function init(){   
+function init() {
   ch1 = createPlot("Chart1", values_y);
   ch2 = createPlot("Chart2", values_y_gas);
+  ch3 = createPlot("Chart3", values_y); // Create the fire sensor chart
+  ch4 = createPlot("Chart4", values_y_gas); // Create the gas sensor chart
   callAPI();
   setInterval(callAPI, 60000); // Refresh the data every minute
 }
+
 
 init();
