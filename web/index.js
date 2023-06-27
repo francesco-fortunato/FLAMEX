@@ -58,12 +58,12 @@ function displayDataOnChart(data_input) {
   ch2.data.datasets[0].data = values_y_gas;
   ch2.update();
 
-  ch3.data.labels = values_x.slice(-60); // Update the fire sensor chart data with the last hour values
-  ch3.data.datasets[0].data = values_y.slice(-60);
+  ch3.data.labels = values_x.slice(-360); // Update the fire sensor chart data with the last hour values
+  ch3.data.datasets[0].data = values_y.slice(-360);
   ch3.update();
 
-  ch4.data.labels = values_x.slice(-60); // Update the gas sensor chart data with the last hour values
-  ch4.data.datasets[0].data = values_y_gas.slice(-60);
+  ch4.data.labels = values_x.slice(-360); // Update the gas sensor chart data with the last hour values
+  ch4.data.datasets[0].data = values_y_gas.slice(-360);
   ch4.update();
 
   calculateStatistics();
