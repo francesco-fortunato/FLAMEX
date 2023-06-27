@@ -1,5 +1,5 @@
 # FLAMEX
-**FLAMEX** (**F**lame **A**lert **M**onitoring and **Ex**tinguishing **S**ystem) - Individual IoT Project
+**FLAMEX** (**F**lame **A**lert **M**onitoring and **EX**tinguishing System) - Individual IoT Project
 
 FLAMEX is an IoT project designed to detect fires and extinguish them automatically. The system uses an ESP32 Heltec LoRa32 V2 board, Riot OS, and AWS IoT Core, DynamoDB, MQTT, and Wi-Fi connection to communicate and store data. 
 
