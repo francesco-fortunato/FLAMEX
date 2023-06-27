@@ -72,9 +72,9 @@ function displayDataOnChart(data_input) {
 
 
 function calculateStatistics() {
-  const lastHourData = input.slice(-60); // Retrieve data from the last hour
-  const lastHourDataGas = input2.slice(-60); // Retrieve gas data from the last hour
-  const lastHourDataFire = input.slice(-60); // Retrieve fire data from the last hour
+  const lastHourData = input; // Retrieve data from the last hour
+  const lastHourDataGas = input2; // Retrieve gas data from the last hour
+  const lastHourDataFire = input.slice(-360); // Retrieve fire data from the last hour
 
   // Calculate aggregated statistics
   const flameStats = calculateAggregatedStats(lastHourData);
