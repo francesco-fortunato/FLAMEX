@@ -161,7 +161,7 @@ Finally you have to modify the IP address inside the `src/wi-fi/main.c` file, an
 
 ### Run
 
-Now, you can flash the board using the command `sudo BOARD=esp32-heltec-lora32-v2 BUILD_IN_DOCKER=1 DOCKER="sudo docker" PORT="/dev/ttyUSB0" make all flash term`
+Now, you can flash the board. Locate yourself in `src/wi-fi` and use the command `sudo BOARD=esp32-heltec-lora32-v2 BUILD_IN_DOCKER=1 DOCKER="sudo docker" PORT="/dev/ttyUSB0" make all flash term`
 
 ## LoRa
 
