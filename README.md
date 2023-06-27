@@ -110,4 +110,4 @@ The pet tracking system leverages several components within the AWS ecosystem to
 The user interface is accessible through this [link](https://main.d21pf4jxloa0cz.amplifyapp.com/)
 
 - [Blog Post](https://www.hackster.io/francescofortunato1999/a-low-power-fire-alert-system-application-with-riot-os-cdb669)
-- [Youtube Video]()
+- [Video Demonstration](https://youtu.be/Z1_pUY_jkf4)
